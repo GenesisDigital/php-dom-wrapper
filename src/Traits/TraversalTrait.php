@@ -3,6 +3,7 @@
 namespace DOMWrap\Traits;
 
 use DOMWrap\{
+    Document,
     Element,
     NodeList
 };
@@ -16,12 +17,14 @@ use Symfony\Component\CssSelector\CssSelectorConverter;
  */
 trait TraversalTrait
 {
+    protected static ?CssSelectorConverter $cssSelectorConverter = null;
+
     /**
      * @param iterable $nodes
      *
      * @return NodeList
      */
-    public function newNodeList(iterable $nodes = null): NodeList {
+    public function newNodeList(?iterable $nodes = null): NodeList {
 
         if (!is_iterable($nodes)) {
             if (!is_null($nodes)) {
@@ -41,9 +44,11 @@ trait TraversalTrait
      * @return NodeList
      */
     public function find(string $selector, string $prefix = 'descendant::'): NodeList {
-        $converter = new CssSelectorConverter();
+        if (!self::$cssSelectorConverter) {
+            self::$cssSelectorConverter = new CssSelectorConverter();
+        }
 
-        return $this->findXPath($converter->toXPath($selector, $prefix));
+        return $this->findXPath(self::$cssSelectorConverter->toXPath($selector, $prefix));
     }
 
     /**
@@ -75,7 +80,7 @@ trait TraversalTrait
      *
      * @return NodeList
      */
-    protected function getNodesMatchingInput($input, bool $matchType = true): NodeList {
+    protected function getNodesMatchingInput(string|NodeList|\DOMNode|callable $input, bool $matchType = true): NodeList {
         if ($input instanceof NodeList || $input instanceof \DOMNode) {
             $inputNodes = $this->inputAsNodeList($input, false);
 
@@ -115,7 +120,7 @@ trait TraversalTrait
      *
      * @return bool
      */
-    public function is($input): bool {
+    public function is(string|NodeList|\DOMNode|callable $input): bool {
         return $this->getNodesMatchingInput($input)->count() != 0;
     }
 
@@ -124,7 +129,7 @@ trait TraversalTrait
      *
      * @return NodeList
      */
-    public function not($input): NodeList {
+    public function not(string|NodeList|\DOMNode|callable $input): NodeList {
         return $this->getNodesMatchingInput($input, false);
     }
 
@@ -133,7 +138,7 @@ trait TraversalTrait
      *
      * @return NodeList
      */
-    public function filter($input): NodeList {
+    public function filter(string|NodeList|\DOMNode|callable $input): NodeList {
         return $this->getNodesMatchingInput($input);
     }
 
@@ -142,7 +147,7 @@ trait TraversalTrait
      *
      * @return NodeList
      */
-    public function has($input): NodeList {
+    public function has(string|NodeList|\DOMNode|callable $input): NodeList {
         if ($input instanceof NodeList || $input instanceof \DOMNode) {
             $inputNodes = $this->inputAsNodeList($input, false);
 
@@ -180,7 +185,7 @@ trait TraversalTrait
      *
      * @return \DOMNode|null
      */
-    public function preceding($selector = null): ?\DOMNode {
+    public function preceding(string|NodeList|\DOMNode|callable|null $selector = null): ?\DOMNode {
         return $this->precedingUntil(null, $selector)->first();
     }
 
@@ -189,7 +194,7 @@ trait TraversalTrait
      *
      * @return NodeList
      */
-    public function precedingAll($selector = null): NodeList {
+    public function precedingAll(string|NodeList|\DOMNode|callable|null $selector = null): NodeList {
         return $this->precedingUntil(null, $selector);
     }
 
@@ -199,7 +204,7 @@ trait TraversalTrait
      *
      * @return NodeList
      */
-    public function precedingUntil($input = null, $selector = null): NodeList {
+    public function precedingUntil(string|NodeList|\DOMNode|callable|null $input = null, string|NodeList|\DOMNode|callable|null $selector = null): NodeList {
         return $this->_walkPathUntil('previousSibling', $input, $selector);
     }
 
@@ -208,7 +213,7 @@ trait TraversalTrait
      *
      * @return \DOMNode|null
      */
-    public function following($selector = null): ?\DOMNode {
+    public function following(string|NodeList|\DOMNode|callable|null $selector = null): ?\DOMNode {
         return $this->followingUntil(null, $selector)->first();
     }
 
@@ -217,7 +222,7 @@ trait TraversalTrait
      *
      * @return NodeList
      */
-    public function followingAll($selector = null): NodeList {
+    public function followingAll(string|NodeList|\DOMNode|callable|null $selector = null): NodeList {
         return $this->followingUntil(null, $selector);
     }
 
@@ -227,7 +232,7 @@ trait TraversalTrait
      *
      * @return NodeList
      */
-    public function followingUntil($input = null, $selector = null): NodeList {
+    public function followingUntil(string|NodeList|\DOMNode|callable|null $input = null, string|NodeList|\DOMNode|callable|null $selector = null): NodeList {
         return $this->_walkPathUntil('nextSibling', $input, $selector);
     }
 
@@ -236,7 +241,7 @@ trait TraversalTrait
      *
      * @return NodeList
      */
-    public function siblings($selector = null): NodeList {
+    public function siblings(string|NodeList|\DOMNode|callable|null $selector = null): NodeList {
         $results = $this->collection()->reduce(function($carry, $node) use ($selector) {
             return $carry->merge(
                 $node->precedingAll($selector)->merge(
@@ -266,9 +271,9 @@ trait TraversalTrait
     /**
      * @param string|NodeList|\DOMNode|callable $selector
      *
-     * @return Element|NodeList|null
+     * @return Document|Element|NodeList|null
      */
-    public function parent($selector = null) {
+    public function parent(string|NodeList|\DOMNode|callable|null $selector = null): Document|Element|NodeList|null {
         $results = $this->_walkPathUntil('parentNode', null, $selector, self::$MATCH_TYPE_FIRST);
 
         return $this->result($results);
@@ -292,7 +297,7 @@ trait TraversalTrait
      *
      * @return NodeList
      */
-    public function parents(string $selector = null): NodeList {
+    public function parents(?string $selector = null): NodeList {
         return $this->parentsUntil(null, $selector);
     }
 
@@ -302,7 +307,7 @@ trait TraversalTrait
      *
      * @return NodeList
      */
-    public function parentsUntil($input = null, $selector = null): NodeList {
+    public function parentsUntil(string|NodeList|\DOMNode|callable|null $input = null, string|NodeList|\DOMNode|callable|null $selector = null): NodeList {
         return $this->_walkPathUntil('parentNode', $input, $selector);
     }
 
@@ -332,9 +337,9 @@ trait TraversalTrait
     /**
      * @param string|NodeList|\DOMNode|callable $input
      *
-     * @return Element|NodeList|null
+     * @return Document|Element|NodeList|null
      */
-    public function closest($input) {
+    public function closest(string|NodeList|\DOMNode|callable|null $input): Document|Element|NodeList|null {
         $results = $this->_walkPathUntil('parentNode', $input, null, self::$MATCH_TYPE_LAST);
 
         return $this->result($results);
@@ -364,7 +369,7 @@ trait TraversalTrait
      *
      * @return NodeList
      */
-    public function add($input): NodeList {
+    public function add(string|NodeList|\DOMNode $input): NodeList {
         $nodes = $this->inputAsNodeList($input);
 
         $results = $this->collection()->merge(
@@ -389,7 +394,7 @@ trait TraversalTrait
      *
      * @return NodeList
      */
-    protected function _buildNodeListUntil(\DOMNode $baseNode, string $property, $input = null, $selector = null, int $matchType = null): NodeList {
+    protected function _buildNodeListUntil(\DOMNode $baseNode, string $property, string|NodeList|\DOMNode|callable|null $input = null, string|NodeList|\DOMNode|callable|null $selector = null, ?int $matchType = null): NodeList {
         $resultNodes = $this->newNodeList();
 
         // Get our first node
@@ -451,7 +456,7 @@ trait TraversalTrait
      *
      * @return NodeList
      */
-    protected function _walkPathUntil(string $property, $input = null, $selector = null, int $matchType = null): NodeList {
+    protected function _walkPathUntil(string $property, string|NodeList|\DOMNode|callable|null $input = null, string|NodeList|\DOMNode|callable|null $selector = null, ?int $matchType = null): NodeList {
         $nodeLists = [];
 
         $this->collection()->each(function($node) use($property, $input, $selector, $matchType, &$nodeLists) {
