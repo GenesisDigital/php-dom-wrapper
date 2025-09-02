@@ -2,11 +2,7 @@
 
 namespace DOMWrap\Traits;
 
-use DOMWrap\{
-    Text,
-    Element,
-    NodeList
-};
+use DOMWrap\{Comment, Document, DocumentType, ProcessingInstruction, Text, Element, NodeList};
 
 /**
  * Manipulation Trait
@@ -434,11 +430,11 @@ trait ManipulationTrait
 
     /**
      * @param string $name
-     * @param mixed $value
+     * @param mixed  $value
      *
-     * @return self|string
+     * @return string|Element|Comment|Document|DocumentType|NodeList|ProcessingInstruction|Text|ManipulationTrait|null
      */
-    public function attr(string $name, mixed $value = null): string|self {
+    public function attr(string $name, mixed $value = null): string|self|null {
         if (is_null($value)) {
             return $this->getAttr($name);
         } else {
