@@ -808,7 +808,7 @@ trait ManipulationTrait
      *
      * @return self
      */
-    public function before($input): self {
+    public function before(string|NodeList|\DOMNode|callable $input): self {
         $this->manipulateNodesWithInput($input, function($node, $newNodes) {
             foreach ($newNodes as $newNode) {
                 $node->parent()->insertBefore($newNode, $node);
@@ -823,7 +823,7 @@ trait ManipulationTrait
      *
      * @return self
      */
-    public function after($input): self {
+    public function after(string|NodeList|\DOMNode|callable $input): self {
         $this->manipulateNodesWithInput($input, function($node, $newNodes) {
             foreach ($newNodes as $newNode) {
                 if (is_null($node->following())) {
@@ -842,7 +842,7 @@ trait ManipulationTrait
      *
      * @return self
      */
-    public function prepend($input): self {
+    public function prepend(string|NodeList|\DOMNode|callable $input): self {
         $this->manipulateNodesWithInput($input, function($node, $newNodes) {
             foreach ($newNodes as $newNode) {
                 $node->insertBefore($newNode, $node->contents()->first());
@@ -857,7 +857,7 @@ trait ManipulationTrait
      *
      * @return self
      */
-    public function append($input): self {
+    public function append(string|NodeList|\DOMNode|callable $input): self {
         $this->manipulateNodesWithInput($input, function($node, $newNodes) {
             foreach ($newNodes as $newNode) {
                 $node->appendChild($newNode);
@@ -873,7 +873,7 @@ trait ManipulationTrait
      *
      * @return self
      */
-    public function remove(string $selector = null): self {
+    public function remove(?string $selector = null): self {
         $this->detach($selector);
 
         return $this;
@@ -884,7 +884,7 @@ trait ManipulationTrait
      *
      * @return self
      */
-    public function replaceWith($input): self {
+    public function replaceWith(string|NodeList|\DOMNode|callable $input): self {
         $this->manipulateNodesWithInput($input, function($node, $newNodes) {
             foreach ($newNodes as $newNode) {
                 $node->parent()->replaceChild($newNode, $node);
