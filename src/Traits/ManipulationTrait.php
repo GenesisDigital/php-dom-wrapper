@@ -2,6 +2,7 @@
 
 namespace DOMWrap\Traits;
 
+use DOMNode;
 use DOMWrap\{
     Text,
     Element,
@@ -831,21 +832,6 @@ trait ManipulationTrait
                 } else {
                     $node->parent()->insertBefore($newNode, $node->following());
                 }
-            }
-        });
-
-        return $this;
-    }
-
-    /**
-     * @param string|NodeList|\DOMNode|callable $input
-     *
-     * @return self
-     */
-    public function prepend(string|NodeList|\DOMNode|callable $input): self {
-        $this->manipulateNodesWithInput($input, function($node, $newNodes) {
-            foreach ($newNodes as $newNode) {
-                $node->insertBefore($newNode, $node->contents()->first());
             }
         });
 
