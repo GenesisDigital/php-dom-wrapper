@@ -1,5 +1,4 @@
 # PHP DOM Wrapper
-[![Scrutinizer Code Quality](https://scrutinizer-ci.com/g/scotteh/php-dom-wrapper/badges/quality-score.png?b=master)](https://scrutinizer-ci.com/g/scotteh/php-dom-wrapper/?branch=master) [![Build Status](https://travis-ci.org/scotteh/php-dom-wrapper.svg?branch=master)](https://travis-ci.org/scotteh/php-dom-wrapper)
 
 ## Intro
 
@@ -11,7 +10,7 @@ PHP DOM Wrapper is a simple DOM wrapper library to manipulate and traverse HTML 
 
 ## Requirements
 
- - PHP 7.1 or later
+ - PHP 8.0 or later
  - PSR-4 compatible autoloader
 
 ## Install
@@ -37,22 +36,22 @@ require 'vendor/autoload.php';
 | Method | jQuery Equivalent *(if different)* |
 |--------|------------------------------|
 | [addClass()](#addClass)    |
-| [after()](#after)       |
-| [append()](#append)      |
+| [follow()](#follow)       | *after()* |
+| [appendWith()](#appendWith)      | *append()* |
 | [appendTo()](#appendTo)    |
 | [attr()](#attr)        |
-| [before()](#before)      |
 | [clone()](#clone)       |
+| [destroy()](#destroy)      | *remove()* |
 | [detach()](#detach)      |
 | [empty()](#empty)       |
 | [hasClass()](#hasClass)    |
 | [html()](#html)        |
-| [prepend()](#prepend)     |
+| [precede()](#precede)      | *before()* |
+| [prependWith()](#prependWith)     | *prepend()* |
 | [prependTo()](#prependTo)   |
-| [remove()](#remove)      |
 | [removeAttr()](#removeAttr)  |
 | [removeClass()](#removeClass) |
-| [replaceWith()](#replaceWith) |
+| [substituteWith()](#substituteWith) | *replaceWith()* |
 | [text()](#text)        |
 | [unwrap()](#unwrap)      |
 | [wrap()](#wrap)        |
@@ -111,7 +110,7 @@ $nodes = $doc->find('li');
 var_dump($nodes->count());
 
 // Append as a child node to each <li>
-$nodes->append('<b>!</b>');
+$nodes->appendWith('<b>!</b>');
 
 // Returns: <html><body><ul><li>First<b>!</b></li><li>Second<b>!</b></li><li>Third<b>!</b></li></ul></body></html>
 var_dump($doc->html());
@@ -144,38 +143,45 @@ $doc->find('p')->addClass('text-center');
 
 ---
 
-#### after
+#### follow
 
 ```
-self after(string|NodeList|\DOMNode|callable $input)
+self follow(string|NodeList|\DOMNode|callable $input)
 ```
+
+Insert the argument as a sibling directly after each of the nodes operated on.
 
 ##### Example
 
 ``` php
 $doc = (new Document())->html('<ul><li>first</li><li>second</li></ul>');
-$doc->find('li')->after('<span> (after)</span>'); 
+$doc->find('li')->first()->follow('<li>first-and-a-half</li>');
+
 ```
 
 *Result:*
 
 ``` html
-<ul><li>first<span> (after)</span></li><li>second<span> (after)</span></li></ul>
+<ul>
+    <li>first</li>
+    <li>first-and-a-half</li>
+    <li>second</li>
+</ul>
 ```
 
 ---
 
-#### append
+#### appendWith
 
 ```
-self append(string|NodeList|\DOMNode|callable $input)
+self appendWith(string|NodeList|\DOMNode|callable $input)
 ```
 
 ##### Example
 
 ``` php
 $doc = (new Document())->html('<div>The quick brown fox jumps over the lazy dog</div>');
-$doc->find('div')->append('<strong> Appended!</strong>');
+$doc->find('div')->appendWith('<strong> Appended!</strong>');
 ```
 
 *Result:*
@@ -240,23 +246,29 @@ text-center
 
 ---
 
-#### before
+#### precede
 
 ```
-self before(string|NodeList|\DOMNode|callable $input)
+self precede(string|NodeList|\DOMNode|callable $input)
 ```
+
+Insert the argument as a sibling just before each of the nodes operated on.
 
 ##### Example
 
 ``` php
 $doc = (new Document())->html('<ul><li>first</li><li>second</li></ul>');
-$doc->find('li')->after('<span>(before) </span>'); 
+doc->find('li')->first()->precede('<li>zeroth</li>');
 ```
 
 *Result:*
 
 ``` html
-<ul><li><span>(before) </span>first</li><li><span>(before) </span>second</li></ul>
+<ul>
+    <li>zeroth</li>
+    <li>first</li>
+    <li>second</li>
+</ul>
 ```
 
 ---
@@ -278,6 +290,26 @@ $doc->find('div')->clone()->appendTo('ul');
 
 ``` html
 <ul><li>Item</li><li>Item</li></ul>
+```
+
+---
+
+#### destroy
+
+```
+self destroy([string $selector = null])
+```
+
+##### Example
+
+``` php
+$doc = (new Document())->html('<ul><li class="first"></li><li class="second"></li></ul>');
+$doc->find('.first')->destroy();
+```
+
+*Result:*
+``` html
+<ul><li class="second"></li></ul>
 ```
 
 ---
@@ -369,7 +401,7 @@ $doc->html('<div class="example"></div>');
 
 ``` php
 $doc = (new Document())->html('<div class="example"></div>');
-$doc->find('div')->append('<span>Example!</span>');
+$doc->find('div')->appendWith('<span>Example!</span>');
 echo $doc->html();
 ```
 
@@ -381,17 +413,17 @@ echo $doc->html();
 
 ---
 
-#### prepend
+#### prependWith
 
 ```
-self prepend(string|NodeList|\DOMNode|callable $input)
+self prependWith(string|NodeList|\DOMNode|callable $input)
 ```
 
 ##### Example
 
 ``` php
 $doc = (new Document())->html('<div>The quick brown fox jumps over the lazy dog</div>');
-$doc->find('div')->prepend('<strong>Prepended! </strong>');
+$doc->find('div')->prependWith('<strong>Prepended! </strong>');
 ```
 
 *Result:*
@@ -418,26 +450,6 @@ $doc->create('<strong>Prepended! </strong>')->appendTo('div');
 *Result:*
 ``` html
 <div><strong>Prepended! </strong>The quick brown fox jumps over the lazy dog</div>
-```
-
----
-
-#### remove
-
-```
-self remove([string $selector = null])
-```
-
-##### Example
-
-``` php
-$doc = (new Document())->html('<ul><li class="first"></li><li class="second"></li></ul>');
-$doc->find('.first').remove();
-```
-
-*Result:*
-``` html
-<ul><li class="second"></li></ul>
 ```
 
 ---
@@ -482,15 +494,27 @@ $doc->find('div').removeClass('first');
 
 ---
 
-#### replaceWith
+#### substituteWith
 
 ```
-self replaceWith(string|NodeList|\DOMNode|callable $input)
+self substituteWith(string|NodeList|\DOMNode|callable $input)
 ```
+
+Replace each node in the current set with the contents provided.
 
 ##### Example
 
 ``` php
+$doc = (new Document())->html('<p><b>Hello</b> <b>World!</b></p>');
+$doc->find('b')->substituteWith(function($node) {
+    return '<em>' . $node->text() . '</em>';
+});
+echo $doc->html();
+```
+
+*Result:*
+``` html
+<p><em>Hello</em> <em>World!</em></p>
 ```
 
 ---
@@ -501,9 +525,33 @@ self replaceWith(string|NodeList|\DOMNode|callable $input)
 string|self text([string|NodeList|\DOMNode|callable $input = null])
 ```
 
-##### Example
+Get the text contents of the current set.
+
+##### Example (get)
 
 ``` php
+$doc = (new Document())->html('<div class="text">Hello World!</div>');
+echo $doc->find('.text')->text();
+```
+
+*Result:*
+``` html
+Hello World!
+```
+
+Set the text contents for current set.
+
+##### Example (set)
+
+``` php
+$doc = (new Document())->html('<div class="text"><string>The quick brown</strong> fox <em>jumps over the lazy dog</em></div>');
+$doc->find('.text')->text('Hello World!');
+echo $doc->html();
+```
+
+*Result:*
+``` html
+<div class="text">Hello World!</div>
 ```
 
 ---
@@ -514,9 +562,25 @@ string|self text([string|NodeList|\DOMNode|callable $input = null])
 self unwrap()
 ```
 
+Unwrap each current node by removing its parent, replacing the parent
+with its children (i.e. the current node and its siblings).
+
+Note that each node is operated on separately, so when you call
+`unwrap()` on a `NodeList` containing two siblings, *two* parents will
+be removed.
+
 ##### Example
 
 ``` php
+$doc = (new Document())->html('<div id="outer"><div id="first"/><div id="second"/></div>');
+$doc->find('#first')->unwrap();
+```
+
+*Result:*
+
+``` html
+<div id="first"></div>
+<div id="second"></div>
 ```
 
 ---
@@ -527,10 +591,40 @@ self unwrap()
 self wrap(string|NodeList|\DOMNode|callable $input)
 ```
 
+Wrap the current node or nodes in the given structure.
+
+The wrapping structure can be nested, but should only contain one node
+on each level (any extra siblings are removed). The outermost node
+replaces the node operated on, while the node operated on is put into
+the innermost node.
+
+If called on a `NodeList`, each of nodes in the list will be separately
+wrapped. When such a list contains multiple nodes, the argument to
+wrap() cannot be a `NodeList` or `\DOMNode`, since those can be used
+to wrap a node only once. A string or callable returning a string or a
+unique `NodeList` or `\DomNode` every time can be used in this case.
+
+When a callable is passed, it is called once for each node operated on,
+passing that node and its index. The callable should return either a
+string, or a unique `NodeList` or `\DOMNode` ever time it is called.
+
+Note that this returns the original node like all other methods, not the
+(new) node(s) wrapped around it.
+
 ##### Example
 
 ``` php
+$doc = (new Document())->html('<span>foo<span><span>bar</span>');
+$doc->find->('span')->wrap('<div><p/></div>');
 ```
+
+*Result:*
+
+``` html
+<div><p><span>foo</span></p></div>
+<div><p><span>bar</span></p></div>
+```
+
 
 ---
 
@@ -540,9 +634,28 @@ self wrap(string|NodeList|\DOMNode|callable $input)
 self wrapAll(string|NodeList|\DOMNode|callable $input)
 ```
 
+Like [wrap()](#wrap), but when operating on multiple nodes, all of them
+will be wrapped together in a single instance of the given structure,
+rather than each of them individually.
+
+Note that the wrapping structure replaces the first node operated on, so
+if the other nodes operated on are not siblings of the first, they will
+be moved inside the document.
+
 ##### Example
 
 ``` php
+$doc = (new Document())->html('<span>foo<span><span>bar</span>');
+$doc->find->('span')->wrapAll('<div><p/></div>');
+```
+
+*Result:*
+
+``` html
+<div><p>
+    <span>foo</span>
+    <span>bar</span>
+</p></div>
 ```
 
 ---
@@ -553,9 +666,21 @@ self wrapAll(string|NodeList|\DOMNode|callable $input)
 self wrapInner(string|NodeList|\DOMNode|callable $input)
 ```
 
-##### Example   
+Like [wrap()](#wrap), but rather than wrapping the nodes that are being
+operated on, this wraps their contents.
+
+##### Example
 
 ``` php
+$doc = (new Document())->html('<span>foo<span><span>bar</span>');
+$doc->find('span')->wrapInner('<b><i/></b>');
+```
+
+*Result:*
+
+``` html
+<span><b><i>foo</i></b></span>
+<span><b><i>bar</i></b></span>
 ```
 
 ---
@@ -1003,6 +1128,8 @@ $slicedNodes = $nodes->slice(1, 3);
 int count()
 ```
 
+Return number of nodes in the current set
+
 ##### Example
 
 ``` php
@@ -1018,6 +1145,8 @@ echo $nodes->count();
 ```
 self each(callable $function)
 ```
+
+Iterate through for each item in the existing set via callback
 
 ##### Example
 

@@ -21,7 +21,7 @@ class Document extends \DOMDocument
     use ManipulationTrait;
 
     /** @var int */
-    protected $libxmlOptions = 0;
+    protected $libxmlOptions = LIBXML_NONET | LIBXML_HTML_NODEFDTD;
 
     /** @var string|null */
     protected $documentEncoding = null;
@@ -68,7 +68,7 @@ class Document extends \DOMDocument
     /**
      * {@inheritdoc}
      */
-    public function result(NodeList $nodeList) {
+    public function result(NodeList $nodeList): NodeList|\DOMNode|null {
         if ($nodeList->count()) {
             return $nodeList->first();
         }
@@ -79,22 +79,26 @@ class Document extends \DOMDocument
     /**
      * {@inheritdoc}
      */
-    public function parent() {
+    public function parent(string|NodeList|\DOMNode|callable|null $selector = null): Document|Element|NodeList|null {
         return null;
     }
 
     /**
      * {@inheritdoc}
      */
-    public function parents() {
+    public function parents(?string $selector = null): NodeList {
         return $this->newNodeList();
     }
 
     /**
      * {@inheritdoc}
      */
-    public function replaceWith($newNode): self {
-        $this->replaceChild($newNode, $this);
+    public function substituteWith(string|NodeList|\DOMNode|callable $input): self {
+        $this->manipulateNodesWithInput($input, function($node, $newNodes) {
+            foreach ($newNodes as $newNode) {
+                $node->replaceChild($newNode, $node);
+            }
+        });
 
         return $this;
     }
@@ -102,43 +106,35 @@ class Document extends \DOMDocument
     /**
      * {@inheritdoc}
      */
-    public function _clone() {
-        return null;
+    public function _clone(): void {
+        return;
     }
 
     /**
      * {@inheritdoc}
      */
-    public function getHtml(): string {
-        return $this->getOuterHtml();
+    public function getHtml(bool $isIncludeAll = false): string {
+        return $this->getOuterHtml($isIncludeAll);
     }
 
     /**
      * {@inheritdoc}
      */
-    public function setHtml($html): self {
-        if (!is_string($html) || trim($html) == '') {
+    public function setHtml(string|NodeList|\DOMNode|callable $input): self {
+        if (!is_string($input) || trim($input) == '') {
             return $this;
         }
 
         $internalErrors = libxml_use_internal_errors(true);
-        $disableEntities = libxml_disable_entity_loader(true);
-
-        $this->detectEncoding($html);
-
-        $html = $this->convertToUtf8($html);
-
-        $this->loadHTML($html, $this->libxmlOptions);
-
-        // Remove <?xml ...> processing instruction.
-        $this->contents()->each(function($node) {
-            if ($node instanceof ProcessingInstruction && $node->nodeName == 'xml') {
-                $node->remove();
-            }
-        });
-
-        libxml_use_internal_errors($internalErrors);
-        libxml_disable_entity_loader($disableEntities);
+        if (\PHP_VERSION_ID < 80000) {
+            $disableEntities = libxml_disable_entity_loader(true);
+            $this->composeXmlNode($input);
+            libxml_use_internal_errors($internalErrors);
+            libxml_disable_entity_loader($disableEntities);
+        } else {
+            $this->composeXmlNode($input);
+            libxml_use_internal_errors($internalErrors);
+        }
 
         return $this;
     }
@@ -149,7 +145,7 @@ class Document extends \DOMDocument
      *
      * @return bool
      */
-    public function loadHTML($html, $options = 0): bool {
+    public function loadHTML(string $html, int $options = 0): bool {
         // Fix LibXML's crazy-ness RE root nodes
         // While importing HTML using the LIBXML_HTML_NOIMPLIED option LibXML insists
         //  on having one root node. All subsequent nodes are appended to this first node.
@@ -167,7 +163,7 @@ class Document extends \DOMDocument
         // Do our re-shuffling of nodes.
         if ($this->libxmlOptions & LIBXML_HTML_NOIMPLIED) {
             $this->children()->first()->contents()->each(function($node){
-                $this->append($node);
+                $this->appendWith($node);
             });
 
             $this->removeChild($this->children()->first());
@@ -176,10 +172,82 @@ class Document extends \DOMDocument
         return $result;
     }
 
+    /**
+     * @param \DOMNode $node
+     *
+     * @return string|bool
+     */
+    public function saveHTML(?\DOMNode $node = null): string|false {
+        $target = $node ?: $this;
+
+        // Undo any url encoding of attributes automatically applied by LibXML.
+        // See htmlAttrDumpOutput() in:
+        //    https://github.com/GNOME/libxml2/blob/master/HTMLtree.c
+        $i = 0;
+        $search = [];
+        $replace = [];
+        $escapes = [
+            ['attr' => 'src'],
+            ['attr' => 'href'],
+            ['attr' => 'action'],
+            ['attr' => 'name', 'tag' => 'a'],
+        ];
+
+        $nodes = $target->find('*[src],*[href],*[action],a[name]', 'descendant-or-self::');
+
+        foreach ($nodes as $node) {
+            foreach ($escapes as $escape) {
+                if (
+                    (!array_key_exists('tag', $escape) || strcasecmp($node->tagName, $escape['tag']) === 0)
+                    && $node->hasAttribute($escape['attr'])
+                ) {
+                    $value = $node->getAttribute($escape['attr']);
+                    $newName = 'DOMWRAP--ATTR-' . $i . '--' . $escape['attr'];
+
+                    $node->setAttribute($newName, $value);
+                    $node->removeAttribute($escape['attr']);
+
+                    // Determine if the attribute will be wrapped in single
+                    //  or double quotes and further encodings to apply.
+                    //
+                    // See xmlBufWriteQuotedString() in:
+                    //    https://github.com/GNOME/libxml2/blob/master/buf.c
+                    $hasQuot = strstr($value, '"');
+                    $hasApos = strstr($value, "'");
+
+                    if ($hasQuot && $hasApos) {
+                        $value = str_replace('"', '&quot;', $value);
+                    }
+
+                    $char = '"';
+
+                    if ($hasQuot && !$hasApos) {
+                        $char = "'";
+                    }
+
+                    // See xmlEscapeEntities() in:
+                    //    https://github.com/GNOME/libxml2/blob/master/xmlsave.c
+					$searchValue = str_replace(['<', '>', '&'], ['&lt;', '&gt;', '&amp;'], $value);
+
+                    $search[] = $newName. '=' . $char . $searchValue . $char;
+                    $replace[] = $escape['attr']. '=' . $char . $value . $char;
+
+                    $i++;
+                }
+            }
+        }
+
+        $html = parent::saveHTML($target);
+
+        $html = str_replace($search, $replace, $html);
+
+        return $html;
+    }
+
     /*
      * @param $encoding string|null
      */
-    public function setEncoding(string $encoding = null) {
+    public function setEncoding(?string $encoding = null): void {
         $this->documentEncoding = $encoding;
     }
 
@@ -198,7 +266,7 @@ class Document extends \DOMDocument
     private function getCharset(string $html): ?string {
         $charset = null;
 
-        if (preg_match('@<meta.*?charset=["\']?([^"\'\s>]+)@im', $html, $matches)) {
+        if (preg_match('@<meta[^>]*?charset=["\']?([^"\'\s>]+)@im', $html, $matches)) {
             $charset = mb_strtoupper($matches[1]);
         }
 
@@ -208,7 +276,7 @@ class Document extends \DOMDocument
     /*
      * @param $html string
      */
-    private function detectEncoding(string $html) {
+    private function detectEncoding(string $html): void {
         $charset = $this->getEncoding();
 
         if (is_null($charset)) {
@@ -252,9 +320,27 @@ class Document extends \DOMDocument
         }
 
         if ($charset === null) {
-            $html = mb_convert_encoding($html, 'HTML-ENTITIES', 'UTF-8');
+            $html = htmlspecialchars_decode(mb_encode_numericentity(htmlentities($html, ENT_QUOTES, 'UTF-8'), [0x80, 0x10FFFF, 0, ~0], 'UTF-8'));
         }
 
         return $html;
+    }
+
+    /**
+     * @param $html string
+     */
+    private function composeXmlNode(string $html): void {
+        $this->detectEncoding($html);
+
+        $html = $this->convertToUtf8($html);
+
+        $this->loadHTML($html, $this->libxmlOptions);
+
+        // Remove <?xml ...> processing instruction.
+        $this->contents()->each(function($node) {
+            if ($node instanceof ProcessingInstruction && $node->nodeName == 'xml') {
+                $node->destroy();
+            }
+        });
     }
 }
