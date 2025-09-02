@@ -2,7 +2,11 @@
 
 namespace DOMWrap\Traits;
 
-use DOMWrap\{Comment, Document, DocumentType, ProcessingInstruction, Text, Element, NodeList};
+use DOMWrap\{
+    Text,
+    Element,
+    NodeList
+};
 
 /**
  * Manipulation Trait
@@ -430,11 +434,11 @@ trait ManipulationTrait
 
     /**
      * @param string $name
-     * @param mixed  $value
+     * @param mixed $value
      *
-     * @return string|Element|Comment|Document|DocumentType|NodeList|ProcessingInstruction|Text|ManipulationTrait|null
+     * @return self|string|null
      */
-    public function attr(string $name, mixed $value = null): string|self|null {
+    public function attr(string $name, mixed $value = null) {
         if (is_null($value)) {
             return $this->getAttr($name);
         } else {
@@ -797,5 +801,96 @@ trait ManipulationTrait
      */
     public function create(string|NodeList|\DOMNode $input): NodeList {
         return $this->inputAsNodeList($input);
+    }
+
+    /**
+     * @param string|NodeList|\DOMNode|callable $input
+     *
+     * @return self
+     */
+    public function before($input): self {
+        $this->manipulateNodesWithInput($input, function($node, $newNodes) {
+            foreach ($newNodes as $newNode) {
+                $node->parent()->insertBefore($newNode, $node);
+            }
+        });
+
+        return $this;
+    }
+
+    /**
+     * @param string|NodeList|\DOMNode|callable $input
+     *
+     * @return self
+     */
+    public function after($input): self {
+        $this->manipulateNodesWithInput($input, function($node, $newNodes) {
+            foreach ($newNodes as $newNode) {
+                if (is_null($node->following())) {
+                    $node->parent()->appendChild($newNode);
+                } else {
+                    $node->parent()->insertBefore($newNode, $node->following());
+                }
+            }
+        });
+
+        return $this;
+    }
+
+    /**
+     * @param string|NodeList|\DOMNode|callable $input
+     *
+     * @return self
+     */
+    public function prepend($input): self {
+        $this->manipulateNodesWithInput($input, function($node, $newNodes) {
+            foreach ($newNodes as $newNode) {
+                $node->insertBefore($newNode, $node->contents()->first());
+            }
+        });
+
+        return $this;
+    }
+
+    /**
+     * @param string|NodeList|\DOMNode|callable $input
+     *
+     * @return self
+     */
+    public function append($input): self {
+        $this->manipulateNodesWithInput($input, function($node, $newNodes) {
+            foreach ($newNodes as $newNode) {
+                $node->appendChild($newNode);
+            }
+        });
+
+        return $this;
+    }
+
+
+    /**
+     * @param string|null $selector
+     *
+     * @return self
+     */
+    public function remove(string $selector = null): self {
+        $this->detach($selector);
+
+        return $this;
+    }
+
+    /**
+     * @param string|NodeList|\DOMNode|callable $input
+     *
+     * @return self
+     */
+    public function replaceWith($input): self {
+        $this->manipulateNodesWithInput($input, function($node, $newNodes) {
+            foreach ($newNodes as $newNode) {
+                $node->parent()->replaceChild($newNode, $node);
+            }
+        });
+
+        return $this;
     }
 }
