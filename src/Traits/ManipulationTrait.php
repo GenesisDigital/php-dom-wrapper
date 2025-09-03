@@ -2,7 +2,6 @@
 
 namespace DOMWrap\Traits;
 
-use DOMNode;
 use DOMWrap\{
     Text,
     Element,
@@ -439,7 +438,7 @@ trait ManipulationTrait
      *
      * @return self|string|null
      */
-    public function attr(string $name, mixed $value = null): string|self {
+    public function attr(string $name, mixed $value = null) {
         if (is_null($value)) {
             return $this->getAttr($name);
         } else {
