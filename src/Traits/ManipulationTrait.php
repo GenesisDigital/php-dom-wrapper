@@ -439,7 +439,7 @@ trait ManipulationTrait
      *
      * @return self|string|null
      */
-    public function attr(string $name, mixed $value = null) {
+    public function attr(string $name, mixed $value = null): string|self {
         if (is_null($value)) {
             return $this->getAttr($name);
         } else {
